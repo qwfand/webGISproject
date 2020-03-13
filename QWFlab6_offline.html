@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>Simple Map by QWF</title>
+    <style>
+        html,
+        body,
+        #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+            z-index: -1;
+        }
+
+        #overviewDiv {
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            width: 300px;
+            height: 200px;
+            border: 1px solid black;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        #optionsDiv {
+            background-color: dimgray;
+            color: white;
+            z-index: 23;
+            position: absolute;
+            top: 200px;
+            right: 0px;
+            padding: 20px 0px 0px 10px;
+            border-bottom-left-radius: 5px;
+            max-width: 300px;
+        }
+
+        #overviewDiv2 {
+            position: absolute;
+            top: 0px;
+            right: 830px;
+            height: 150px;
+            width: 300px;
+            border: 1px solid black;
+
+        }
+
+        #overviewDiv2:hover {
+            position: absolute;
+            top: 0px;
+            right: 680px;
+            height: 300px;
+            width: 400px;
+            border: 1px solid black;
+
+        }
+
+        #overviewDiv2:hover+#info {
+            position: absolute;
+            top: 0px;
+            right: 680px;
+            height: 20px;
+            width: 250px;
+            z-index: 23;
+            border: 1px solid black;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            right: 830px;
+            height: 20px;
+            width: 250px;
+            z-index: 23;
+            border: 1px solid black;
+        }
+
+        #extentDiv {
+            background-color: rgba(0, 0, 0, 0.5);
+            position: absolute;
+            z-index: 2;
+        }
+
+        #topbar {
+            background: #fff;
+            padding: 10px;
+        }
+
+        .action-button {
+            font-size: 16px;
+            background-color: transparent;
+            border: 1px solid #D3D3D3;
+            color: #6e6e6e;
+            height: 32px;
+            width: 32px;
+            text-align: center;
+            box-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-button:hover,
+        .action-button:focus {
+            background: #0079c1;
+            color: #e4e4e4;
+        }
+
+        .active {
+            background: #0079c1;
+            color: #e4e4e4;
+        }
+
+        #drop-downs {
+            padding-bottom: 15px;
+        }
+
+        #stdrop-downs {
+            padding-bottom: 15px;
+        }
+
+        < !-- #results {
+            font-weight: bolder;
+            padding-top: 10px;
+        }
+
+        -->.slider {
+            width: 100%;
+            height: 60px;
+        }
+    </style>
+
+<link rel="stylesheet" href="http://localhost:8080/arcgis_js_api/library/4.10/esri/themes/light/main.css"/>
+<script type="text/javascript" src="http://localhost:8080/arcgis_js_api/library/4.10/init.js"></script>
+<script src="http://localhost:8080/arcgis_js_api/library/4.10/"></script>
+
+    <script>
+        require([
+            "esri/widgets/Sketch",
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/FeatureLayer",
+            "esri/widgets/DistanceMeasurement2D",
+            "esri/widgets/AreaMeasurement2D",
+            "esri/widgets/BasemapToggle",
+            "esri/widgets/ScaleBar",
+            "esri/widgets/Legend",
+            "esri/layers/GraphicsLayer",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/tasks/QueryTask",
+            "esri/tasks/support/Query",
+            "dojo/dom",
+            "dojo/on",
+            "dojo/_base/array",
+            "dojo/domReady!",
+            "esri/geometry/geometryEngine",
+            "esri/Graphic"
+        ], function (
+            Sketch,
+            Map, MapView, FeatureLayer, DistanceMeasurement2D,
+            AreaMeasurement2D, BasemapToggle, ScaleBar, Legend, //geometry,
+            GraphicsLayer, SimpleMarkerSymbol,
+            QueryTask, Query, dom, on, arrayUtils, geometryEngine, Graphic) {
+            //define sysbols for each break
+            const less35 = {
+                type: "simple-fill", //autocast as new SimpleFIllSymbol()
+                color: "#fffcd4",
+                style: "solid",
+                outline: {
+                    width: 0.2,
+                    color: [255, 255, 255, 0.5]
+                }
+            };
+
+            const less50 = {
+                type: "simple-fill", //autocast as new SimpleFIllSymbol()
+                color: "#b1cdc2",
+                style: "solid",
+                outline: {
+                    width: 0.2,
+                    color: [255, 255, 255, 0.5]
+                }
+            };
+
+            const more50 = {
+                type: "simple-fill", //autocast as new SimpleFIllSymbol()
+                color: "#38627a",
+                style: "solid",
+                outline: {
+                    width: 0.2,
+                    color: [255, 255, 255, 0.5]
+                }
+            };
+
+            const more75 = {
+                type: "simple-fill", //autocast as new SimpleFIllSymbol()
+                color: "#0d2644",
+                style: "solid",
+                outline: {
+                    width: 0.2,
+                    color: [255, 255, 255, 0.5]
+                }
+            };
+
+            const render = {
+                type: "class-breaks", //autocast as new classBreaksRenderer()
+                field: "COL_DEG",
+                normalizationField: "EDUCBASECY",
+                legendOptions: {
+                    title: "% of adults (25+) with a college degree"
+                },
+                defaultSymbol: {
+                    type: "simple-fill", //autocast as new SimpleFIllSymbol()
+                    color: "blac",
+                    style: "backward-diagonal",
+                    outline: {
+                        width: 0.5,
+                        color: [50, 50, 50, 0.6]
+                    }
+                },
+                defaultLabel: "no data",
+                classBreakInfos: [{
+                    minValue: 0,
+                    maxValue: 0.3499,
+                    symbol: less35,
+                    label: "<35%"
+                }, {
+                    minValue: 0.35,
+                    maxValue: 0.4999,
+                    symbol: less50,
+                    label: "35 - 50%"
+                }, {
+                    minValue: 0.5,
+                    maxValue: 0.7499,
+                    symbol: more50,
+                    label: "50 - 75%"
+                }, {
+                    minValue: 0.75,
+                    maxValue: 1.00,
+                    symbol: more75,
+                    label: ">75%"
+                }]
+            };
+
+            const seattleLayer = new FeatureLayer({
+                url: "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/Puget_sound_BG_demographics/FeatureServer/0",
+                title: "Seattle block groups",
+                render: render,
+                popupTemplate: { //autocast as esri/popupTemplate
+                    title: "Block Group{FID_Block_Group}",
+                    content: "{COL_DEG} adults 25 years old older in this block group hava a college degree." +
+                        "{NO_COL_DEG} adults do not hava a college degree."
+                },
+                //show only block group in seattle
+                definitionExpression: "city='Seattle' AND EDUCBASECY > 0",
+                opacity: 0.9
+            });
+            mylayer = new GraphicsLayer();
+
+            //create a map with a basemap, to be used with in the main view
+            var mainMap = new Map({
+                basemap: "gray", // "gray-vector"
+                layers: [seattleLayer, mylayer]
+            });
+
+            // create another map, to be used in the overview 
+            var overviewMap = new Map({
+                basemap: "gray"
+            });
+
+            //create the mapview
+            var mainVeiw = new MapView({
+                container: "viewDiv",
+                map: mainMap,
+                //extent:startExtent
+            });
+
+            mainVeiw.when(function () {
+                mainVeiw.goTo({
+                    center: [-122.3487846, 47.589070],
+                    zoom: 11,
+                    heading: 0,
+                    tilt: 0
+                }, {
+                    animate: false
+                });
+            });
+
+            // create the mainView for overview map
+            var mapView = new MapView({
+                container: "overviewDiv",
+                map: overviewMap,
+                constraints: {
+                    rotationEnabled: false
+                }
+            });
+
+
+            var extentDiv = document.getElementById("extentDiv");
+            //var extent = mainVeiw.extent;
+
+            mapView.when(function () {
+                // update the overview extend whenever the mapview or sceneview extent changges
+                mainVeiw.watch("extent", updateOverviewExtent);
+                mapView.watch("extent", updateOverviewExtent);
+
+                //update the minimap overview when the main view became stationary
+                watchUtils.when(mainView, "stationary", updateOverview);
+
+                function updateOverview() {
+                    //Animate the MapView to a zoomed-out scale so we get anice overview
+                    //we use the "progress" callback of the goTo promise to update
+                    // the overview extent while animating
+                    mapView.goTo({
+                        center: mainVeiw.center,
+                        scale: mainVeiw.scale * 2 * Math.max(mainVeiw.width /
+                            mapView.width,
+                            mainVeiw.height / mapView.height)
+                    });
+                }
+
+                function updateOverviewExtent() {
+                    //update the overview extent by converting the SceneView extent to
+                    //the MapView screen coordinates and updating the extentDiv position
+                    var extent = mainVeiw.extent;
+
+                    var bottomLeft = mapView.toScreen(extent.xmin, extent.ymin);
+                    var topRight = mapView.toScreen(extent.xmax, extent.ymax);
+
+                    extentDiv.style.top = topRight.y + "px";
+                    extentDiv.style.left = bottomLeft.x + "px";
+
+                    extentDiv.style.height = (bottomLeft.y - topRight.y) + "px";
+                    extentDiv.style.width = (topRight.x - bottomLeft.x) + "px";
+                }
+            });
+
+            mainVeiw.ui.add("topbar", "top-left");
+
+            document.getElementById("distanceButton").addEventListener(
+                "click",
+                function () {
+                    setActiveWidget(null);
+                    if (!this.classList.contains('active')) {
+                        setActiveWidget('distance');
+                    } else {
+                        setActiveButton(null);
+                    }
+                });
+
+            document.getElementById("areaButton").addEventListener(
+                "click",
+                function () {
+                    setActiveWidget(null);
+                    if (!this.classList.contains('active')) {
+                        setActiveWidget('area');
+                    } else {
+                        setActiveButton(null);
+                    }
+                });
+
+            var activeWidget;
+
+            function setActiveWidget(type) {
+                switch (type) {
+                    case "distance":
+                        activeWidget = new DistanceMeasurement2D({
+                            view: mainVeiw
+                        });
+
+                        //skip the initial 'new measurement' button
+                        activeWidget.viewModel.newMeasurement();
+
+                        mainVeiw.ui.add(activeWidget, "top-left");
+                        setActiveButton(document.getElementById('distanceButton'));
+                        break;
+                    case "area":
+                        activeWidget = new AreaMeasurement2D({
+                            view: mainVeiw
+                        });
+
+                        //skip the initial 'new measurement' button
+                        activeWidget.viewModel.newMeasurement();
+
+                        mainVeiw.ui.add(activeWidget, "top-left");
+                        setActiveButton(document.getElementById('areaButton'));
+                        break;
+                    case null:
+                        if (activeWidget) {
+                            mainVeiw.ui.remove(activeWidget);
+                            activeWidget.destroy();
+                            activeWidget = null;
+                        }
+                        break;
+                }
+            }
+
+            function setActiveButton(selectedButton) {
+                //foucus the view to activate keybord shortcuts for skeching
+                mainVeiw.focus();
+                var elements = document.getElementsByClassName("active");
+                for (var i = 0; i < elements.length; i++) {
+                    elements[i].classList.remove("active");
+                }
+                if (selectedButton) {
+                    selectedButton.classList.add("active");
+                }
+            }
+            //create the widgets
+            var toggle = new BasemapToggle({
+                // set properties
+                view: mainVeiw, //view that provides access to the map's 'topo'
+                nextBasemap: "topo" //allows for toggling the 'hybrid' basemap
+            });
+            //add widget to the top right corner of the view
+            mainVeiw.ui.add(toggle, "bottom-right");
+
+            var scaleBar = new ScaleBar({
+                view: mapView
+            });
+
+            mainVeiw.ui.add(scaleBar, "bottom-right");
+
+            const legend = new Legend({
+                view: mainVeiw
+            });
+            legend.style = {
+                type: "classic",
+                layout: "stack" //"side-by-side"
+            };
+            mainVeiw.ui.add(legend, "bottom-left");
+
+            var sketch = new Sketch({
+                layer: mylayer,
+                view: mainVeiw
+            });
+            mainVeiw.ui.add(sketch, "bottom-right");
+
+
+            //query
+            var results2DLyr = new GraphicsLayer();
+            mainMap.add(results2DLyr);
+            on(dom.byId("doBtn"), "click", query);
+
+            function query() {
+                var featureLayerUrl = mainVeiw.map.layers.items[0].url +
+                    "/" + mainVeiw.map.layers.items[0].layerId;
+
+                var qTask = new QueryTask({
+                    url: featureLayerUrl
+                });
+                var params = new Query({
+                    returnGeometry: true,
+                    outFields: ["*"]
+                });
+                var wellTypeSelect = document.getElementById("st-typeForQ");
+                var val = wellTypeSelect.options[wellTypeSelect.selectedIndex].value
+
+                var expressionSign = dom.byId("signSelect");
+                var value = dom.byId("valSelect");
+
+                params.where = val + expressionSign.value + value.value;
+
+                qTask.execute(params)
+                    .then(getResults)
+                    .otherwise(promiseRejected);
+            }
+
+            function getResults(response) {
+                // print the number of results returned to the user
+                dom.byId("printResults").innerHTML = response.features.length +
+                    " results found!";
+                displayResultsIn2D(response);
+            }
+
+            function promiseRejected(err) {
+                console.error("Query failed: ", err.message);
+            }
+
+            function displayResultsIn2D(response) {
+                results2DLyr.removeAll();
+
+                var featureResults2D = arrayUtils.map(response.features, function (feature) {
+                    feature.symbol = new SimpleMarkerSymbol({
+                        style: "circle",
+                        color: "yellow",
+                        size: "8px",
+                        outline: {
+                            color: [255, 255, 0],
+                            width: 6
+                        }
+                    });
+                    return feature;
+                });
+                results2DLyr.addMany(featureResults2D);
+                // animate to the results after they are added to the map  
+                mainVeiw.goTo(featureResults2D);
+            }
+
+            //statistic
+            on(dom.byId("statiticBtn"), "click", statistic);
+
+            function statistic() {
+                var wellTypeSelect = document.getElementById("st-type");
+                var layer = mainVeiw.map.layers.items[0];
+
+                var val = wellTypeSelect.options[wellTypeSelect.selectedIndex].value
+
+                // query for the sum of the population in all features
+                var sumPopulation = {
+                    onStatisticField: val, //"COL_DEG",  // service field for 2015 population
+                    outStatisticFieldName: "Pop_2015_sum",
+                    statisticType: "sum"
+                };
+
+                // query for the average population in all features
+                var avgPopulation = {
+                    onStatisticField: val,
+                    outStatisticFieldName: "Pop_2015_avg",
+                    statisticType: "avg"
+                };
+
+                var query = layer.createQuery();
+                // query.where = "STATE_NAME = 'Washington'";
+                query.outStatistics = [sumPopulation, avgPopulation];
+                layer.queryFeatures(query)
+                    .then(function (response) {
+                        var stats = response.features[0].attributes;
+                        console.log("Sum " + stats.Pop_2015_sum);
+                        console.log("Average Population in WA counties" + stats.Pop_2015_avg);
+                        dom.byId("printResultsForst").innerHTML = "Sum ： " + stats.Pop_2015_sum + "\n" +
+                            "Average ：" + stats.Pop_2015_avg;
+                    });
+            }
+        });
+    </script>
+
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/SceneView",
+            "esri/views/MapView",
+            "esri/layers/GraphicsLayer",
+            "esri/Graphic",
+            "esri/geometry/geometryEngine",
+            "esri/layers/FeatureLayer",
+            "dojo/dom"
+        ], function (
+            Map,
+            SceneView,
+            MapView,
+            GraphicsLayer,
+            Graphic,
+            geometryEngine,
+            FeatureLayer,
+            dom
+        ) {
+            const seattleLayer = new FeatureLayer({
+                url: "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/Puget_sound_BG_demographics/FeatureServer/0",
+                title: "Seattle block groups",
+                popupTemplate: { //autocast as esri/popupTemplate
+                    title: "Block Group{FID_Block_Group}",
+                    content: "{COL_DEG} adults 25 years old older in this block group hava a college degree." +
+                        "{NO_COL_DEG} adults do not hava a college degree."
+                },
+                //show only block group in seattle
+                definitionExpression: "city='Seattle' AND EDUCBASECY > 0",
+                opacity: 0.9
+            });
+
+            var map = new Map({
+                basemap: "gray", // "gray-vector"
+                layers: [seattleLayer]
+            });
+
+            // Add two graphics layers to map: one for points, another for buffers
+
+            var bufferLayer = new GraphicsLayer();
+            var pointLayer = new GraphicsLayer();
+            var resultsLayer = new GraphicsLayer();
+            var mylayer = new GraphicsLayer();
+            map.addMany([bufferLayer, pointLayer, resultsLayer, mylayer]);
+
+            var viewOptions = {
+                map: map,
+                center: [-122.3487846, 47.589070],
+                zoom: 10
+            };
+
+
+            var viewForBuffer = new MapView(viewOptions);
+            viewForBuffer.container = "overviewDiv2";
+
+            console.log("buffer");
+            /*
+          var myfields=seattleLayer.fields;
+         console.log(myfields);*/
+
+            var polySym = {
+                type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                color: [140, 140, 222, 0.5],
+                outline: {
+                    color: [0, 0, 0, 0.5],
+                    width: 2
+                }
+            };
+
+            var pointSym = {
+                type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+                color: [255, 0, 0],
+                outline: {
+                    color: [255, 255, 255],
+                    width: 1
+                },
+                size: 7
+            };
+
+            // Indicates whether buffering is enabled
+            var bufferEnabled = false;
+
+            function keyDownListener(event) {
+                var keyInput = event.key;
+                bufferEnabled =
+                    (keyInput === " " || keyInput === "Spacebar") && !bufferEnabled;
+                if (bufferEnabled) {
+                    document.getElementById("mode").innerHTML = "navigation";
+                } else {
+                    document.getElementById("mode").innerHTML = "buffering";
+                }
+            }
+
+            viewForBuffer.on("key-down", keyDownListener);
+
+
+            viewForBuffer.on("pointer-move", function (event) {
+                if (bufferEnabled) {
+                    createBuffer(event, viewForBuffer);
+                }
+            });
+
+            viewForBuffer.on("click", function (event) {
+                bufferPoint(event.mapPoint);
+            });
+
+            function createBuffer(event, view) {
+                // prevent further propagation of the current event bubbling up the event chain.
+                // in this case, it will prevent default `drag` event behavior for the MapView
+                // which is to move around the view by dragging the pointer.
+                event.stopPropagation();
+
+                // convert screen coordinates to map coordinates
+                var point = view.toMap({
+                    x: event.x,
+                    y: event.y
+                });
+
+                if (point) {
+                    bufferPoint(point);
+                }
+            }
+            /**
+             * Buffers the given point by 6 kilometers.
+             */
+            function bufferPoint(point) {
+                if (!bufferEnabled) {
+                    console.log(
+                        "buffering not enabled. Hit the space bar key and click/drag to buffer."
+                    );
+                    return;
+                }
+
+                clearGraphics();
+
+                // removes z values from the point when taken from a SceneView.
+                // GeometryEngine does not support 3D geometries.
+                point.hasZ = false;
+                point.z = undefined;
+
+                pointLayer.add(
+                    new Graphic({
+                        geometry: point,
+                        symbol: pointSym
+                    })
+                );
+                // console.log(point);
+                var buffer = geometryEngine.geodesicBuffer(point, 6, "kilometers");
+                bufferLayer.add(
+                    new Graphic({
+                        geometry: buffer,
+                        symbol: polySym
+                    })
+                );
+                // my qury
+                var expressionSign = dom.byId("signSelect");
+                var value = dom.byId("valSelect");
+                var wellTypeSelect = document.getElementById("st-typeForQ");
+                var val = wellTypeSelect.options[wellTypeSelect.selectedIndex].value
+
+                var query = seattleLayer.createQuery();
+                query.where = val + expressionSign.value + value.value;
+                query.geometry = buffer;
+                query.spatialRelationship = "intersects";
+
+                return seattleLayer.queryFeatures(query).then(displayResults); //imap
+            }
+            // view and print the number of results to the DOM
+            function displayResults(results) {
+                resultsLayer.removeAll();
+
+                var features = results.features.map(function (graphic) {
+                    graphic.symbol = {
+                        type: "simple-fill", // autocasts as new SimpleFillSymbol()
+                        outline: {
+                            width: 1.5,
+                            color: [0, 255, 255, 1]
+                        },
+                        style: "none"
+                    };
+                    return graphic;
+                });
+                var num = features.length;
+                document.getElementById("results").innerHTML =
+                    num + " features found in buffer range query";
+                resultsLayer.addMany(features);
+            }
+
+            /**
+             * Clears all graphics from all GraphicsLayers
+             */
+            function clearGraphics() {
+                pointLayer.removeAll();
+                bufferLayer.removeAll();
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div id="viewDiv"></div>
+    <div id="overviewDiv">
+        <div id="extentDiv"></div>
+    </div>
+
+    <div id="topbar">
+        <button class="action-button esri-icon-minus" id="distanceButton" type="button"
+            title="Measure distance between two or more points"></button>
+        <button class="action-button esri-icon-polygon" id="areaButton" type="button" title="Measure area"></button>
+    </div>
+    <div id="optionsDiv">
+        选择查询条件
+        <select id="st-typeForQ" class="esri-widget">
+            <option value="COL_DEG">College Degree (25+)</option>
+            <option value="NO_COL_DEG">No college degree</option>
+            <option value="GED_CY">2015 Pop 25+/Educ</option>
+            <option value="ED_ATT">Educational Attainment</option>
+            <option value="HH_Income_75_200K">Household income $75K - $200K</option>
+            <option value="HH_Income_0_35K"> Household income < $35K</option> <option value="HH_Income_35_75K">
+                    Household income $35K - $75K</option>
+            <option value="HomeValue_300K_up">Home Value > $300K</option>
+            <option value="HomeValue_150_300K"> Home Value $150K - $300K</option>
+            <option value="HomeValue_0_150K"> Home Value < $150K</option> <option value="TOTPOP_CY">2015 Total
+                    Population</option>
+            <option value="POP18UP_CY">2015 Total Population 18+</option>
+            <option value="MALES_CY"> 2015 Male Population</option>
+            <option value="FEMALES_CY">2015 Female Population</option>
+        </select>
+        <select id="signSelect">
+            <option value=">">大于</option>
+            <option value="<">小于</option>
+            <option value="=">等于</option>
+        </select>
+        <input id="valSelect" value="1000" />
+        <button id="doBtn">查询</button>
+        <!--<button id="bufferBtn">Buffer</button>-->
+        <p><span id="printResults"></span></p>
+        <div id="stdrop-downs">
+            选择统计字段（sum,average）：
+            <select id="st-type" class="esri-widget">
+                <option value="COL_DEG">College Degree (25+)</option>
+                <option value="NO_COL_DEG">No college degree</option>
+                <option value="GED_CY">2015 Pop 25+/Educ</option>
+                <option value="ED_ATT">Educational Attainment</option>
+                <option value="HH_Income_75_200K">Household income $75K - $200K</option>
+                <option value="HH_Income_0_35K"> Household income < $35K</option> <option value="HH_Income_35_75K">
+                        Household income $35K - $75K</option>
+                <option value="HomeValue_300K_up">Home Value > $300K</option>
+                <option value="HomeValue_150_300K"> Home Value $150K - $300K</option>
+                <option value="HomeValue_0_150K"> Home Value < $150K</option> <option value="TOTPOP_CY">2015 Total
+                        Population</option>
+                <option value="POP18UP_CY">2015 Total Population 18+</option>
+                <option value="MALES_CY"> 2015 Male Population</option>
+                <option value="FEMALES_CY">2015 Female Population</option>
+            </select>
+        </div>
+        <button id="statiticBtn" class="esri-widget">Statitc</button>
+        <p><span id="printResultsForst"></span></p>
+        <p><span id="results"></span></p>
+    </div>
+
+    <div id="overviewDiv2">
+        <div class="viewDivBase" id="viewDiv2d"></div>
+    </div>
+    <div id="info" class="esri-widget">
+        <label class="chkLabel">按 <strong>空格键</strong> 开启/关闭
+            <strong> <span id="mode">buffer</span>.</strong> 点击、移动鼠标进行buffer，然后以buffer后的图形查询满足一定条件的要素
+        </label>
+    </div>
+    </div>
+</body>
+
+</html>
