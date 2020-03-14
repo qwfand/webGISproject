@@ -3,7 +3,7 @@
 [click me to view details]<https://qwfand.github.io/webGISproject/>
 
 # github
-[github]<https://www.github.com/qwfand/webGISproject/]
+[github]<https://www.github.com/qwfand/webGISproject/>
 
 # intro
 
